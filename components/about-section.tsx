@@ -1,26 +1,25 @@
 import Image from "next/image"
-import { CheckCircle2, Smartphone, Users, Send } from "lucide-react"
+import { CheckCircle2, Wallet, Users, CheckCheck } from "lucide-react"
 
 export default function AboutSection() {
   const steps = [
     {
       number: "1",
-      title: "Message Mochabot",
-      description: "No need to create an account, just provide basic information and get started.",
-      icon: <Smartphone className="h-6 w-6 text-white" />,
+      title: "Fund Wallet",
+      description: "Securely add funds to your wallet using your preferred payment method.",
+      icon: <Wallet className="h-6 w-6 text-white" />,
     },
     {
       number: "2",
-      title: "Add Recipients",
-      description: "Securely save your recipient's details for quick and easy transfers anytime.",
+      title: "Add Recipient",
+      description: "Easily add whatsapp contact of receiver",
       icon: <Users className="h-6 w-6 text-white" />,
     },
     {
       number: "3",
-      title: "Send Money",
-      description:
-        "Choose your payment method, enter the amount, and confirm. Your money will arrive quickly and securely.",
-      icon: <Send className="h-6 w-6 text-white" />,
+      title: "Money Sent",
+      description: "Your money arrives instantly to your recipient's WhatsApp. Fast, secure, and convenient.",
+      icon: <CheckCheck className="h-6 w-6 text-white" />,
     },
   ]
 

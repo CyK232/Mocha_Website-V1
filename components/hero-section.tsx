@@ -13,12 +13,36 @@ export default function HeroSection() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div className="max-w-xl">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6">
-              Send Money in Seconds
+              Send Money to Sierra Leone
             </h1>
             <p className="text-lg md:text-xl text-gray-700 mb-8">
-              Experience instant transfer from anywhere to Sierra Leone at the best rates. Send as little as $1 or as
-              much as you need. Modern, secure, and blockchain-powered.
+              Your Loved Ones Receive Money Directly on WhatsApp.
+              <br />
+              No middlemen. No hidden fees. Great rates and 24/7 instant transfers.
             </p>
+
+            {/* Stats Section */}
+            <div className="rounded-xl p-6 mb-8 shadow-sm">
+              <div className="grid grid-cols-2 gap-6 mb-6">
+                <div>
+                  <p className="text-3xl md:text-4xl font-bold text-brown-500">$2.1M</p>
+                  <p className="text-sm text-gray-600">Cumulative Volume</p>
+                </div>
+                <div>
+                  <p className="text-3xl md:text-4xl font-bold text-brown-500">5819</p>
+                  <p className="text-sm text-gray-600">Unique Transactions</p>
+                </div>
+                <div>
+                  <p className="text-3xl md:text-4xl font-bold text-brown-500">$750K</p>
+                  <p className="text-sm text-gray-600">Remittance Volume</p>
+                </div>
+                <div>
+                  <p className="text-3xl md:text-4xl font-bold text-brown-500">$223</p>
+                  <p className="text-sm text-gray-600">Average Transaction</p>
+                </div>
+              </div>
+            </div>
+
             <HeroCTA />
           </div>
 

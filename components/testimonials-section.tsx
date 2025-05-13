@@ -4,37 +4,48 @@ import { Star } from "lucide-react"
 export default function TestimonialsSection() {
   const testimonials = [
     {
-      name: "Sarah Johnson",
-      role: "Regular User",
+      name: "James Koroma",
+      role: "Diaspora Sender",
       content:
-        "Mocha has transformed how I send money to my family in Sierra Leone. It's fast, reliable, and the fees are much lower than traditional services.",
-      avatar: "/placeholder.svg?height=100&width=100",
+        "Sending money home is now quick and affordable. My family receives funds directly on WhatsApp - no more waiting in lines!",
+      avatar: "/placeholder.svg?key=5lnwm",
       rating: 5,
     },
     {
-      name: "Michael Kamara",
-      role: "Business Owner",
+      name: "Fatmata Sesay",
+      role: "Content Creator",
       content:
-        "As a business owner, I need reliable payment solutions. Mocha's business tools have streamlined our international payments process.",
-      avatar: "/placeholder.svg?height=100&width=100",
+        "I receive international payments at the best rates without losing money to unfair exchanges. A game-changer for my business!",
+      avatar: "/professional-african-woman.png",
       rating: 5,
     },
     {
-      name: "Aminata Sesay",
-      role: "Student",
+      name: "Ibrahim Kamara",
+      role: "University Student",
       content:
-        "The Send Now, Pay Later feature helped me during a financial emergency. I could send money home when I needed to most.",
-      avatar: "/placeholder.svg?height=100&width=100",
-      rating: 4,
+        "My allowance goes straight to my whatsapp account instantly. No bank visits needed - I cashout when I want!",
+      avatar: "/placeholder.svg?key=fayxs",
+      rating: 5,
     },
   ]
 
   const partners = [
-    { name: "Partner 1", logo: "/placeholder.svg?height=60&width=120" },
-    { name: "Partner 2", logo: "/placeholder.svg?height=60&width=120" },
-    { name: "Partner 3", logo: "/placeholder.svg?height=60&width=120" },
-    { name: "Partner 4", logo: "/placeholder.svg?height=60&width=120" },
-    { name: "Partner 5", logo: "/placeholder.svg?height=60&width=120" },
+    {
+      name: "CF",
+      logo: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/CF.jpg-ualvWCExnRIhWwk9nKzBlxcZkyDQRZ.jpeg",
+    },
+    {
+      name: "New Dacaf",
+      logo: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/New%20Dacaf.jpg-lHFLxkM2bTBJsrnJMcEgcTZASNUufH.jpeg",
+    },
+    {
+      name: "Felei TechCity",
+      logo: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/felei.jpg-dByCBOlocokZdDWPjV6i7PxhNjKOiA.jpeg",
+    },
+    {
+      name: "Ministry of Communication, Technology & Innovation",
+      logo: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MOCTI.jpg-L1pwUrvnsc1PRuchLFfZXN3TPNNjsz.jpeg",
+    },
   ]
 
   return (

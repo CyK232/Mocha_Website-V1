@@ -1,10 +1,12 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Send, ChevronDown, Search, X } from "lucide-react"
+import { Send, ChevronDown, Search, X, ExternalLink, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import WhatsAppChat from "./whatsapp-chat"
+import PaymentMethodSelector from "./payment-method-selector"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface FlipCardProps {
   onFlip?: () => void
@@ -16,6 +18,9 @@ export default function FlipCard({ onFlip }: FlipCardProps) {
   const [receivedAmount, setReceivedAmount] = useState("0.00")
   const [fee, setFee] = useState("0.00")
   const [currency, setCurrency] = useState("USD")
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [demoMode, setDemoMode] = useState(false)
+  const [showPaymentMethods, setShowPaymentMethods] = useState(false)
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -25,24 +30,34 @@ export default function FlipCard({ onFlip }: FlipCardProps) {
   const [isCurrencyDialogOpen, setCurrencyDialogOpen] = useState(false)
   const currencyDialogRef = useRef<HTMLDivElement>(null)
 
-  // Exchange rate: 1 USD = 23.5 SLL
-  const exchangeRate = 23.5
+  // Exchange rates
+  const exchangeRates = {
+    USD: 23.5,
+    GBP: 29,
+    EUR: 24,
+  }
 
-  // Calculate received amount when amount changes
+  // Fee percentage (1%)
+  const feePercentage = 0.01
+
+  // Calculate received amount when amount or currency changes
   useEffect(() => {
     if (amount && !isNaN(Number.parseFloat(amount))) {
       const amountValue = Number.parseFloat(amount)
+
+      // Calculate fee (1% of the amount)
+      const feeAmount = (amountValue * feePercentage).toFixed(2)
+      setFee(feeAmount)
+
+      // Calculate received amount based on currency
+      const exchangeRate = exchangeRates[currency as keyof typeof exchangeRates] || 23.5
       const received = (amountValue * exchangeRate).toFixed(2)
       setReceivedAmount(received)
-
-      // Calculate fee (for example, 2% of the amount)
-      const feeAmount = (amountValue * 0.02).toFixed(2)
-      setFee(feeAmount)
     } else {
       setReceivedAmount("0.00")
       setFee("0.00")
     }
-  }, [amount])
+  }, [amount, currency])
 
   // Handle clicking outside the dialog
   useEffect(() => {
@@ -73,8 +88,54 @@ export default function FlipCard({ onFlip }: FlipCardProps) {
   }, [currencyDialogRef])
 
   const handleFlip = () => {
+    // Validate that we have the required information
+    if (!phoneNumber.trim()) {
+      // If no phone number, don't flip
+      return
+    }
+
+    // Show payment methods instead of flipping directly to WhatsApp chat
+    setShowPaymentMethods(true)
     setIsFlipped(true)
     if (onFlip) onFlip()
+  }
+
+  const handlePaymentComplete = (method: string, transactionId: string) => {
+    console.log(`Payment completed with ${method}, transaction ID: ${transactionId}`)
+    // Hide payment methods and show WhatsApp chat
+    setShowPaymentMethods(false)
+  }
+
+  const handlePaymentCancel = () => {
+    console.log("Payment cancelled")
+    // Flip back to the front of the card
+    setIsFlipped(false)
+    setShowPaymentMethods(false)
+  }
+
+  const handlePaymentError = (error: Error) => {
+    console.error("Payment error:", error)
+    // Show error message but stay on payment methods
+    alert(`Payment error: ${error.message}`)
+  }
+
+  const openWhatsApp = () => {
+    // Format the phone number by removing any non-digit characters except the plus sign
+    const formattedNumber = selectedCountry.code + phoneNumber.replace(/[^\d]/g, "")
+
+    // Create the message text
+    const messageText = `Hello! I'd like to send ${currency} ${amount || "0.00"} (${receivedAmount} SLL) via Mocha.`
+
+    // Create the WhatsApp URL
+    const whatsappUrl = `https://wa.me/${formattedNumber.replace("+", "")}?text=${encodeURIComponent(messageText)}`
+
+    // Open WhatsApp in a new tab
+    window.open(whatsappUrl, "_blank")
+  }
+
+  // Format the full phone number
+  const getFormattedPhoneNumber = () => {
+    return selectedCountry.code + phoneNumber.replace(/[^\d]/g, "")
   }
 
   return (
@@ -90,14 +151,22 @@ export default function FlipCard({ onFlip }: FlipCardProps) {
             isFlipped ? "invisible" : ""
           }`}
         >
-          <div className="flex items-center mb-6">
-            <div className="h-12 w-12 rounded-full bg-beige-100 flex items-center justify-center mr-3">
-              <Send className="h-6 w-6 text-brown-400 rotate-45" />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <div className="h-12 w-12 rounded-full bg-beige-100 flex items-center justify-center mr-3">
+                <Send className="h-6 w-6 text-brown-400 rotate-45" />
+              </div>
+              <div>
+                <h3 className="font-bold text-xl">Send Money</h3>
+                <p className="text-sm text-gray-600">Fast, secure transfers</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold text-xl">Send Money</h3>
-              <p className="text-sm text-gray-600">Fast, secure transfers</p>
-            </div>
+            <button
+              onClick={() => setDemoMode(!demoMode)}
+              className="text-sm text-brown-400 hover:text-brown-500 flex items-center"
+            >
+              {demoMode ? "Normal Mode" : "Demo Mode"}
+            </button>
           </div>
 
           <div className="mb-6">
@@ -241,14 +310,16 @@ export default function FlipCard({ onFlip }: FlipCardProps) {
                         { code: "+420", flag: "🇨🇿", name: "Czech Republic" },
                         { code: "+36", flag: "🇭🇺", name: "Hungary" },
                         { code: "+40", flag: "🇷🇴", name: "Romania" },
+                        {},
+                        { code: "+40", flag: "🇷🇴", name: "Romania" },
                         { code: "+359", flag: "🇧🇬", name: "Bulgaria" },
                         { code: "+30", flag: "🇬🇷", name: "Greece" },
                         // Add more countries as needed
                       ]
                         .filter(
                           (country) =>
-                            country.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            country.code.includes(searchTerm),
+                            country.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            country.code?.includes(searchTerm),
                         )
                         .map((country, index) => (
                           <button
@@ -268,32 +339,169 @@ export default function FlipCard({ onFlip }: FlipCardProps) {
                   </div>
                 )}
               </div>
-              <Input type="tel" placeholder="WhatsApp number" className="rounded-l-none flex-1" />
+              <Input
+                type="tel"
+                placeholder="WhatsApp number"
+                className="rounded-l-none flex-1"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+              />
             </div>
           </div>
 
           <div className="flex justify-between text-sm text-gray-600 mb-6">
-            <span>1 USD = 23.5 SLL</span>
-            <span>Fee = {fee} USD</span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger className="flex items-center">
+                  <span>Exchange Rates</span>
+                  <Info className="h-3.5 w-3.5 ml-1 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div className="text-xs">
+                    <p>1 USD = Le 23.5</p>
+                    <p>1 GBP = Le 29</p>
+                    <p>1 EUR = Le 24</p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger className="flex items-center">
+                  <span>
+                    Fee = {fee} {currency}
+                  </span>
+                  <Info className="h-3.5 w-3.5 ml-1 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">1% flat fee deducted from your card balance</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
-          <Button
-            className="w-full py-6 bg-brown-400 hover:bg-brown-500 text-white font-medium text-lg"
-            onClick={handleFlip}
-          >
-            Transfer Now
-          </Button>
+          {demoMode ? (
+            <div className="space-y-4">
+              <Button
+                className="w-full py-6 bg-green-600 hover:bg-green-700 text-white font-medium text-lg flex items-center justify-center"
+                onClick={openWhatsApp}
+                disabled={!phoneNumber}
+              >
+                <ExternalLink className="mr-2 h-5 w-5" />
+                Send Real WhatsApp Message
+              </Button>
+              <p className="text-center text-sm text-gray-600">This will open WhatsApp with a pre-filled message</p>
+            </div>
+          ) : (
+            <Button
+              className="w-full py-6 bg-brown-400 hover:bg-brown-500 text-white font-medium text-lg"
+              onClick={handleFlip}
+              disabled={!phoneNumber}
+            >
+              Transfer Now
+            </Button>
+          )}
 
           <p className="text-center text-sm text-gray-600 mt-4">No hidden fees. Instant transfers.</p>
         </div>
 
-        {/* Back of card (WhatsApp Chat) */}
+        {/* Back of card */}
         <div
           className={`absolute w-full h-full backface-hidden bg-white rounded-2xl shadow-xl overflow-hidden rotate-y-180 ${
             !isFlipped ? "invisible" : ""
           }`}
         >
-          <WhatsAppChat initialAmount={amount} onFlipBack={() => setIsFlipped(false)} />
+          {showPaymentMethods ? (
+            <div className="h-full flex flex-col">
+              {/* Payment Methods Header */}
+              <div className="bg-brown-300 text-white p-4 flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center mr-3">
+                    <Send className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold">Complete Your Payment</h3>
+                    <p className="text-xs text-white/80">Powered by Mocha</p>
+                  </div>
+                </div>
+                <button
+                  className="text-white hover:text-white/80 transition-colors"
+                  onClick={() => {
+                    setIsFlipped(false)
+                    setShowPaymentMethods(false)
+                  }}
+                  aria-label="Go back"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="lucide lucide-arrow-left"
+                  >
+                    <path d="m12 19-7-7 7-7" />
+                    <path d="M19 12H5" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Payment Methods Content */}
+              <div className="flex-1 p-6 overflow-y-auto bg-gray-50">
+                <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+                  <h4 className="font-medium text-gray-700 mb-2">Transaction Summary</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Amount:</span>
+                      <span className="font-medium">
+                        {currency} {amount || "0.00"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Recipient gets:</span>
+                      <span className="font-medium">SLL {receivedAmount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Fee (1%):</span>
+                      <span className="font-medium">
+                        {currency} {fee}
+                      </span>
+                    </div>
+                    <div className="border-t pt-2 mt-2 flex justify-between">
+                      <span className="text-gray-700 font-medium">Total:</span>
+                      <span className="font-bold">
+                        {currency} {(Number(amount || 0) + Number(fee)).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <PaymentMethodSelector
+                  amount={amount || "0.00"}
+                  currency={currency}
+                  onPaymentComplete={handlePaymentComplete}
+                  onPaymentCancel={handlePaymentCancel}
+                  onPaymentError={handlePaymentError}
+                  senderName=""
+                  senderNumber={getFormattedPhoneNumber()}
+                  recipientName=""
+                  recipientNumber=""
+                />
+              </div>
+            </div>
+          ) : (
+            <WhatsAppChat
+              initialAmount={amount}
+              onFlipBack={() => setIsFlipped(false)}
+              senderNumber={getFormattedPhoneNumber()}
+              currency={currency}
+              receivedAmount={receivedAmount}
+            />
+          )}
         </div>
       </div>
     </div>

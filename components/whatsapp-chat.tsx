@@ -3,12 +3,12 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
-import { Send, User, Phone, UserCheck } from "lucide-react"
+import { Send, User, UserCheck, Check, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 // Define the conversation steps
-type Step = "welcome" | "senderNumber" | "senderName" | "receiverName" | "receiverNumber" | "confirmation" | "complete"
+type Step = "welcome" | "receiverName" | "receiverNumber" | "confirmation" | "complete"
 
 // Define the message structure
 interface Message {
@@ -21,42 +21,88 @@ interface Message {
 // Define the transaction data structure
 interface TransactionData {
   senderNumber: string
-  senderName: string
   amount: string
   currency: "USD" | "GBP" | "EUR"
   receiverName: string
   receiverNumber: string
+  receivedAmount?: string
 }
 
 interface WhatsAppChatProps {
   initialAmount?: string
   onFlipBack?: () => void
+  senderNumber?: string
+  currency?: string
+  receivedAmount?: string
 }
 
-export default function WhatsAppChat({ initialAmount = "", onFlipBack }: WhatsAppChatProps) {
+export default function WhatsAppChat({
+  initialAmount = "",
+  onFlipBack,
+  senderNumber = "",
+  currency = "USD",
+  receivedAmount = "",
+}: WhatsAppChatProps) {
   // State for the chat interface
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [currentStep, setCurrentStep] = useState<Step>("welcome")
   const [transactionData, setTransactionData] = useState<Partial<TransactionData>>({
     amount: initialAmount || "",
-    currency: "USD",
+    currency: currency,
+    senderNumber: senderNumber || "",
+    receivedAmount: receivedAmount || "",
   })
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const buttonsRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const [showButtons, setShowButtons] = useState(true)
+  const [sendingReceipt, setSendingReceipt] = useState(false)
+  const [receiptStatus, setReceiptStatus] = useState<"idle" | "sending" | "success" | "error">("idle")
+
+  // Exchange rate: 1 USD = 23.5 SLL (or use the passed receivedAmount)
+  const exchangeRate = 23.5
+
+  // Calculate received amount if not provided
+  useEffect(() => {
+    if (!transactionData.receivedAmount && transactionData.amount) {
+      const amount = Number.parseFloat(transactionData.amount as string) || 0
+      const received = (amount * exchangeRate).toFixed(2)
+      setTransactionData((prev) => ({
+        ...prev,
+        receivedAmount: received,
+      }))
+    }
+  }, [transactionData.amount, transactionData.receivedAmount])
 
   // Initialize the chat with a welcome message
   useEffect(() => {
-    const welcomeMessage: Message = {
-      id: "welcome",
-      content: `👋 Hi there! I'll help you complete your transfer of $${initialAmount || "0.00"}. First, I need a few details. Would you like to continue?`,
-      sender: "bot",
-      timestamp: new Date(),
+    let welcomeMessage: Message
+
+    if (senderNumber) {
+      welcomeMessage = {
+        id: "welcome",
+        content: `👋 Hi there! I'll help you complete your transfer of ${currency} ${initialAmount || "0.00"}. First, I need the recipient's details.`,
+        sender: "bot",
+        timestamp: new Date(),
+      }
+    } else {
+      welcomeMessage = {
+        id: "welcome",
+        content: `👋 Hi there! I'll help you complete your transfer of ${currency} ${initialAmount || "0.00"}. First, I need the recipient's details.`,
+        sender: "bot",
+        timestamp: new Date(),
+      }
     }
+
     setMessages([welcomeMessage])
-  }, [initialAmount])
+
+    // Automatically move to asking for receiver name after a short delay
+    setTimeout(() => {
+      addBotMessage("Please enter the recipient's full name.")
+      setCurrentStep("receiverName")
+    }, 1000)
+  }, [initialAmount, senderNumber, currency])
 
   // Auto-scroll to the bottom of the chat and ensure buttons are visible
   useEffect(() => {
@@ -83,7 +129,7 @@ export default function WhatsAppChat({ initialAmount = "", onFlipBack }: WhatsAp
     }, 100)
 
     return () => clearTimeout(scrollTimeout)
-  }, [messages, showButtons, currentStep])
+  }, [messages, showButtons, currentStep, receiptStatus])
 
   // Prevent page scrolling when interacting with the chat
   useEffect(() => {
@@ -142,37 +188,69 @@ export default function WhatsAppChat({ initialAmount = "", onFlipBack }: WhatsAp
     }, 300)
   }
 
+  // Mock function to simulate sending a receipt
+  const sendReceiptToRecipient = async () => {
+    if (!transactionData.receiverNumber) return
+
+    try {
+      // Set status to sending
+      setReceiptStatus("sending")
+
+      // Calculate the conversion rate
+      const amount = Number.parseFloat(transactionData.amount as string) || 0
+      const received = Number.parseFloat(transactionData.receivedAmount as string) || 0
+      const rate = (received / amount).toFixed(2)
+
+      // Simulate API call with a delay
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      // Simulate success
+      setReceiptStatus("success")
+      addBotMessage(
+        `Receipt sent successfully to ${transactionData.receiverName} at ${transactionData.receiverNumber}.`,
+      )
+
+      // Add option to start a new transfer after a delay
+      setTimeout(() => {
+        addBotMessage("Would you like to make another transfer?")
+      }, 800)
+
+      // NOTE: In a real implementation, you would call your backend API here
+      // Example:
+      // const response = await fetch("/api/whatsapp/send", {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify({
+      //     recipientNumber: transactionData.receiverNumber,
+      //     payment: {
+      //       senderName: transactionData.senderName || "",
+      //       senderNumber: senderNumber || transactionData.senderNumber || "",
+      //       amount: transactionData.amount || "",
+      //       currency: transactionData.currency || "USD",
+      //       receivedAmount: transactionData.receivedAmount || "",
+      //       localCurrency: "SLL",
+      //       conversionRate: rate,
+      //       recipientName: transactionData.receiverName || "",
+      //     },
+      //   }),
+      // });
+      // const result = await response.json();
+      // Handle result...
+    } catch (error) {
+      // Error
+      setReceiptStatus("error")
+      addBotMessage("There was an error sending the receipt. Please try again.")
+      console.error("Error sending receipt:", error)
+    }
+  }
+
   // Process user input and determine the next step
   const processUserInput = (userInput: string) => {
     switch (currentStep) {
       case "welcome":
-        // Any response to welcome moves to asking for sender's number
+        // Any response to welcome moves to asking for receiver's name
         setTimeout(() => {
-          addBotMessage("Great! To get started, please enter your WhatsApp number.")
-          setCurrentStep("senderNumber")
-        }, 300)
-        break
-
-      case "senderNumber":
-        // Validate and store the sender's number
-        if (isValidPhoneNumber(userInput)) {
-          setTransactionData((prev) => ({ ...prev, senderNumber: userInput }))
-          setTimeout(() => {
-            addBotMessage("Thanks! Now, please enter your full name.")
-            setCurrentStep("senderName")
-          }, 300)
-        } else {
-          setTimeout(() => {
-            addBotMessage("That doesn't look like a valid phone number. Please enter a valid WhatsApp number.")
-          }, 300)
-        }
-        break
-
-      case "senderName":
-        // Store the sender's name
-        setTransactionData((prev) => ({ ...prev, senderName: userInput }))
-        setTimeout(() => {
-          addBotMessage("Great! Now, please enter the recipient's full name.")
+          addBotMessage("Please enter the recipient's full name.")
           setCurrentStep("receiverName")
         }, 300)
         break
@@ -181,7 +259,7 @@ export default function WhatsAppChat({ initialAmount = "", onFlipBack }: WhatsAp
         // Store the receiver's name
         setTransactionData((prev) => ({ ...prev, receiverName: userInput }))
         setTimeout(() => {
-          addBotMessage("Finally, please enter the recipient's WhatsApp number.")
+          addBotMessage("Now, please enter the recipient's WhatsApp number.")
           setCurrentStep("receiverNumber")
         }, 300)
         break
@@ -201,9 +279,9 @@ export default function WhatsAppChat({ initialAmount = "", onFlipBack }: WhatsAp
             const confirmationMessage = `
               Please confirm your transfer details:
               
-              From: ${data.senderName} (${data.senderNumber})
+              Amount: ${data.currency} ${data.amount}
+              They'll receive: SLL ${data.receivedAmount}
               To: ${data.receiverName} (${data.receiverNumber})
-              Amount: $${data.amount}
               
               Would you like to proceed with this transfer?
             `
@@ -221,22 +299,26 @@ export default function WhatsAppChat({ initialAmount = "", onFlipBack }: WhatsAp
         // Process the confirmation
         if (userInput.toLowerCase() === "confirm" || userInput.toLowerCase() === "yes") {
           setTimeout(() => {
-            addBotMessage(
-              `Great! Your money transfer of $${transactionData.amount} to ${transactionData.receiverName} has been initiated. You'll receive a confirmation on your WhatsApp number shortly.`,
-            )
-            setCurrentStep("complete")
+            const successMessage = `
+Great! Your money transfer of ${transactionData.currency} ${transactionData.amount} to ${transactionData.receiverName} has been initiated. 
 
-            // Add option to start a new transfer
-            setTimeout(() => {
-              addBotMessage("Would you like to make another transfer?")
-            }, 800)
+A receipt will now be sent to the recipient's WhatsApp number.
+            `
+            addBotMessage(successMessage)
+
+            // Simulate sending the receipt
+            sendReceiptToRecipient()
+
+            setCurrentStep("complete")
           }, 300)
         } else if (userInput.toLowerCase() === "cancel" || userInput.toLowerCase() === "no") {
           setTimeout(() => {
             addBotMessage("Transfer cancelled. Would you like to start over?")
             setTransactionData({
               amount: initialAmount || "",
-              currency: "USD",
+              currency: currency,
+              senderNumber: senderNumber || "",
+              receivedAmount: receivedAmount || "",
             })
             setCurrentStep("welcome")
           }, 300)
@@ -251,12 +333,15 @@ export default function WhatsAppChat({ initialAmount = "", onFlipBack }: WhatsAp
         // Handle starting a new transfer
         if (userInput.toLowerCase() === "yes") {
           setTimeout(() => {
-            addBotMessage("Great! Let's start a new transfer. Please enter your WhatsApp number.")
+            addBotMessage("Great! Let's start a new transfer. Please enter the recipient's full name.")
             setTransactionData({
               amount: initialAmount || "",
-              currency: "USD",
+              currency: currency,
+              senderNumber: senderNumber || "",
+              receivedAmount: receivedAmount || "",
             })
-            setCurrentStep("senderNumber")
+            setCurrentStep("receiverName")
+            setReceiptStatus("idle")
           }, 300)
         } else if (userInput.toLowerCase() === "no") {
           setTimeout(() => {
@@ -364,9 +449,64 @@ export default function WhatsAppChat({ initialAmount = "", onFlipBack }: WhatsAp
     return null
   }
 
+  // Render receipt status indicator
+  const renderReceiptStatus = () => {
+    if (receiptStatus === "sending") {
+      return (
+        <div ref={buttonsRef} className="flex justify-center items-center gap-2 mb-4 mt-2 animate-fadeIn">
+          <div className="flex items-center bg-blue-50 text-blue-600 px-4 py-2 rounded-md">
+            <div className="animate-spin mr-2">
+              <svg className="h-4 w-4" viewBox="0 0 24 24">
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+            </div>
+            Sending receipt to recipient...
+          </div>
+        </div>
+      )
+    }
+
+    if (receiptStatus === "success") {
+      return (
+        <div ref={buttonsRef} className="flex justify-center items-center gap-2 mb-4 mt-2 animate-fadeIn">
+          <div className="flex items-center bg-green-50 text-green-600 px-4 py-2 rounded-md">
+            <Check className="h-4 w-4 mr-2" />
+            Receipt sent successfully!
+          </div>
+        </div>
+      )
+    }
+
+    if (receiptStatus === "error") {
+      return (
+        <div ref={buttonsRef} className="flex justify-center items-center gap-2 mb-4 mt-2 animate-fadeIn">
+          <div className="flex items-center bg-red-50 text-red-600 px-4 py-2 rounded-md">
+            <AlertCircle className="h-4 w-4 mr-2" />
+            Failed to send receipt. Please try again.
+          </div>
+        </div>
+      )
+    }
+
+    return null
+  }
+
   // Render complete buttons
   const renderCompleteButtons = () => {
-    if (currentStep === "complete" && showButtons) {
+    if (currentStep === "complete" && showButtons && receiptStatus !== "sending") {
       return (
         <div ref={buttonsRef} className="flex justify-center gap-2 mb-4 mt-2 animate-fadeIn">
           <Button
@@ -403,14 +543,9 @@ export default function WhatsAppChat({ initialAmount = "", onFlipBack }: WhatsAp
     let placeholder = "Type a message..."
 
     switch (currentStep) {
-      case "senderNumber":
-        icon = <Phone className="h-4 w-4" />
-        placeholder = "Enter your WhatsApp number..."
-        break
-      case "senderName":
       case "receiverName":
         icon = <User className="h-4 w-4" />
-        placeholder = "Enter name..."
+        placeholder = "Enter recipient's name..."
         break
       case "receiverNumber":
         icon = <UserCheck className="h-4 w-4" />
@@ -511,7 +646,55 @@ export default function WhatsAppChat({ initialAmount = "", onFlipBack }: WhatsAp
                 message.sender === "user" ? "bg-brown-100" : "bg-white"
               }`}
             >
-              <p className="text-gray-800 whitespace-pre-line">{message.content}</p>
+              <p className="text-gray-800 whitespace-pre-line">
+                {message.content.includes("From:") && senderNumber ? (
+                  <>
+                    {message.content.split("From:").map((part, i) =>
+                      i === 0 ? (
+                        <span key={i}>{part}</span>
+                      ) : (
+                        <span key={i}>
+                          From: <span className="font-bold text-brown-500">{part.split("(")[0]}</span>(
+                          <span className="font-bold text-brown-500">{senderNumber}</span>){part.split(")")[1]}
+                        </span>
+                      ),
+                    )}
+                  </>
+                ) : message.content.includes(`Amount:`) && initialAmount ? (
+                  <>
+                    {message.content.split(`Amount:`).map((part, i) =>
+                      i === 0 ? (
+                        <span key={i}>{part}</span>
+                      ) : (
+                        <span key={i}>
+                          Amount:{" "}
+                          <span className="font-bold text-brown-500">
+                            {currency} {initialAmount}
+                          </span>
+                          {part.split(currency)[1]?.split(initialAmount)[1]}
+                        </span>
+                      ),
+                    )}
+                  </>
+                ) : message.content.includes(`${currency} ${initialAmount}`) ? (
+                  <>
+                    {message.content.split(`${currency} ${initialAmount}`).map((part, i, arr) =>
+                      i === arr.length - 1 ? (
+                        <span key={i}>{part}</span>
+                      ) : (
+                        <span key={i}>
+                          {part}
+                          <span className="font-bold text-brown-500">
+                            {currency} {initialAmount}
+                          </span>
+                        </span>
+                      ),
+                    )}
+                  </>
+                ) : (
+                  message.content
+                )}
+              </p>
               <p className="text-xs text-gray-500 mt-1">
                 {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               </p>
@@ -523,6 +706,7 @@ export default function WhatsAppChat({ initialAmount = "", onFlipBack }: WhatsAp
         {/* Quick reply buttons for different steps */}
         {renderWelcomeButtons()}
         {renderConfirmationButtons()}
+        {renderReceiptStatus()}
         {renderCompleteButtons()}
       </div>
 
